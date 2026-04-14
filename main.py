@@ -10,7 +10,7 @@ load_dotenv()
 
 
 llm = ChatGoogleGenerativeAI(
-    model='gemini-2.5-flash',
+    model='gemini-2.5-flash-lite',
     api_key=os.environ.get('GOOGLE_API_KEY')
 )
 
@@ -38,7 +38,6 @@ def fetch_articles(state: NewsState) -> dict:
     date = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d")
     articles = dict()
     for query in state.get("queries",[]):
-        print(f"Passing query {query}")
         url = f"{BASE_URL}q={query}&from={date}&pageSize=5&sortBy=popularity&apiKey={news_key}"
         result = requests.get(url).json()
         articles[query] = result['articles'] if len(result['articles']) >=1 else [{"articles":"No information latest available"}]
@@ -48,27 +47,42 @@ def fetch_articles(state: NewsState) -> dict:
 
 
 def summary(state: NewsState):
+    print("Using LLM to summarise the latest articles")
     summary = dict()
     articles = state.get("articles",dict())
     for query in articles:
         prompt = f"""
-            You are an expert news summarizer.
+            You are a professional news analyst creating a structured news brief.
 
             Query: "{query}"
 
-            Analyze the articles below and produce a clear, factual summary.
+            Instructions:
+            1. Extract key developments from the articles.
+            2. Preserve important details like:
+            - Dates
+            - Sources (publication names)
+            - Major events and outcomes
+            3. Merge overlapping information, but DO NOT lose attribution.
+            4. Ignore irrelevant metadata, HTML, or truncated text.
 
-            Requirements:
-            - Exactly 100 words (not more, not less)
-            - Focus on major developments, causes, and implications
-            - Combine overlapping information across articles
-            - No opinions, speculation, or fluff
-            - Write in a professional, journalistic tone
+            Output Format:
+
+            Summary:
+            - Write a clear, well-structured narrative (200–250 words)
+            - Focus on major developments and their implications
+            - Maintain chronological clarity if possible
+
+            Key Developments:
+            - [Date] – [Event] (Source)
+            - [Date] – [Event] (Source)
+
+            Notes:
+            - No fluff or repetition
+            - No hallucinated facts
+            - Keep it factual and journalistic
 
             Articles:
             {articles[query]}
-
-            Final Answer (100 words only):
             """
         response = llm.invoke(prompt)
         summary[query] = response.content 
@@ -79,6 +93,7 @@ def summary(state: NewsState):
     
 
 def sentiment_analysis(state: NewsState):
+    print("Using LLM for sentiment analysis on the summary")
     sentiment = dict()
     summaries = state.get("summary",dict())
     sentiment = dict()
@@ -125,7 +140,7 @@ compiled_graph = graph.compile()
 
 
 from fastapi import FastAPI
-
+import json
 
 app = FastAPI()
 
@@ -133,6 +148,8 @@ app = FastAPI()
 def serve(query: str):
     inital_state = {"queries":[query]}
     output = compiled_graph.invoke(inital_state)
+    with open("last_output.json","r") as f:
+        json.dump(output,f)
     return output
 
 
