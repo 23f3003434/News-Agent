@@ -115,16 +115,25 @@ graph.add_edge("summary","sentiment_analysis")
 graph.add_edge("sentiment_analysis",END)
 
 
-inital_state = {"queries":["Bitcoin price"]}
+
 
 compiled_graph = graph.compile()
 
-output = compiled_graph.invoke(inital_state)
 
 
 
 
 
+from fastapi import FastAPI
+
+
+app = FastAPI()
+
+@app.get("/{query}")
+def serve(query: str):
+    inital_state = {"queries":[query]}
+    output = compiled_graph.invoke(inital_state)
+    return output
 
 
 
