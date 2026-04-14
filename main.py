@@ -148,7 +148,7 @@ app = FastAPI()
 def serve(query: str):
     inital_state = {"queries":[query]}
     output = compiled_graph.invoke(inital_state)
-    with open("last_output.json","r") as f:
+    with open("last_output.json","w") as f:
         json.dump(output,f)
     return output
 
